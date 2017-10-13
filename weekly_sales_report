@@ -1,0 +1,105 @@
+SELECT
+
+	SUM(CASE SOPTYPE 
+			WHEN 2 THEN 1
+			ELSE 0
+			END) number_of_orders_entered,		
+	SUM(CASE SOPTYPE 
+			WHEN 3 THEN 1
+			ELSE 0
+			END) number_of_orders_invoiced,
+	MIN(DOCDATE) start_date, 
+	MAX(DOCDATE) end_date
+
+	FROM(
+		SELECT 
+				unposted.SOPTYPE,
+				unposted.DOCDATE, 
+				unposted.SOPNUMBE 
+			FROM SOP10100 unposted --Unposted transactions: one record per posted sales transaction
+				WHERE unposted.VOIDSTTS = 0 -- VOID STATUS: 0 = not voided
+					AND unposted.SOPTYPE IN (2,3) -- SOPTYPE: 2 = order, SOPTYPE 3 = invoice
+					AND unposted.DOCDATE >= DATEADD(d, -8, GETDATE())
+					AND unposted.DOCDATE <= DATEADD(d, -1, GETDATE())
+					--AND unposted.ORIGNUMB LIKE '   %' -- ORIGNUMB only when a previous order is split. This avoids duplicates.
+
+		UNION
+		
+		SELECT 
+				posted.SOPTYPE,
+				posted.DOCDATE,
+				posted.SOPNUMBE -- SOPSTATUS
+			FROM SOP30200 posted -- Historical transactions: one record per posted sales transaction
+				WHERE posted.VOIDSTTS = 0
+					AND posted.SOPTYPE IN (2,3)
+					AND posted.DOCDATE >= DATEADD(d, -8, GETDATE())
+					AND posted.DOCDATE <= DATEADD(d, -1, GETDATE())
+					--AND posted.ORIGNUMB LIKE '   %'	
+		
+		) total_orders_list
+
+SELECT 
+	TOP(5) custname customer_name, weeks_revenue
+	FROM(	
+		SELECT 
+
+			CUSTNAME custname, 
+			SUM(SUBTOTAL) weeks_revenue
+
+			FROM SOP10100 unposted --Unposted transactions: one record per posted sales transaction
+				WHERE unposted.VOIDSTTS = 0 -- VOID STATUS: 0 = not voided
+					AND unposted.SOPTYPE = 2 -- SOPTYPE: 2 = order, SOPTYPE 3 = invoice
+					AND unposted.DOCDATE >= DATEADD(d, -8, GETDATE())
+					AND unposted.DOCDATE <= DATEADD(d, -1, GETDATE())
+					AND unposted.ORIGNUMB LIKE '   %' -- ORIGNUMB only when a previous order is split. This avoids duplicates
+				GROUP BY custname
+
+		UNION
+
+		SELECT 
+
+			CUSTNAME custname, 
+			SUM(SUBTOTAL) weeks_revenue
+
+			FROM SOP30200 posted -- Historical transactions: one record per posted sales transaction
+				WHERE posted.VOIDSTTS = 0
+					AND posted.SOPTYPE = 2
+					AND posted.DOCDATE >= DATEADD(d, -8, GETDATE())
+					AND posted.DOCDATE <= DATEADD(d, -1, GETDATE())
+					AND posted.ORIGNUMB LIKE '   %'
+				GROUP BY custname
+		) weeks_top_customers
+		ORDER BY weeks_revenue DESC
+
+SELECT 
+
+	SUM(SUBTOTAL) weekly_revenue_of_orders_entered -- "Revenue" only from orders received
+
+	FROM(	
+		SELECT 
+
+			SOPNUMBE, 
+			SUBTOTAL
+
+			FROM SOP10100 unposted --Unposted transactions: one record per posted sales transaction
+				WHERE unposted.VOIDSTTS = 0 -- VOID STATUS: 0 = not voided
+					AND unposted.SOPTYPE = 2 -- SOPTYPE: 2 = order, SOPTYPE 3 = invoice
+					AND unposted.DOCDATE >= DATEADD(d, -8, GETDATE())
+					AND unposted.DOCDATE <= DATEADD(d, -1, GETDATE())
+					AND unposted.ORIGNUMB LIKE '   %' -- ORIGNUMB only when a previous order is split. This avoids duplicates
+
+		UNION
+
+		SELECT 
+			
+			SOPNUMBE, 
+			SUBTOTAL
+
+			FROM SOP30200 posted -- Historical transactions: one record per posted sales transaction
+				WHERE posted.VOIDSTTS = 0
+					AND posted.SOPTYPE = 2
+					AND posted.DOCDATE >= DATEADD(d, -8, GETDATE())
+					AND posted.DOCDATE <= DATEADD(d, -1, GETDATE())
+					AND posted.ORIGNUMB LIKE '   %'
+				
+		) order_list
