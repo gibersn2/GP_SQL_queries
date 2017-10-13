@@ -1,0 +1,25 @@
+SELECT
+	receiving.CatNo [Catalog Number],
+	receiving.name [Product Name],
+	CONVERT(VARCHAR(10), ReceiptDate,101)[Receipt Date],
+	ISNULL(Bin1, 'No Location') Bin1, 
+	ISNULL(Bin2, 'NA') Bin2, 
+	ISNULL(Bin3, 'NA') Bin3 
+
+	FROM 
+		( 
+		SELECT			
+			LEFT(pn.CatNo,5) CatNo, Description name, pop.DATERECD ReceiptDate
+				FROM purchasing_new pn
+				 
+				LEFT JOIN pop30330 pop
+					ON RTRIM(pn.our) = RTRIM(pop.POPRCTNM) AND RTRIM(pn.catNo) = RTRIM(pop.itemnmbr)
+					    
+			WHERE pop.DATERECD >= DATEADD(d, -5, GETDATE())			
+			GROUP BY LEFT(pn.CatNo,5), pop.DATERECD, Description
+		) receiving
+
+		LEFT JOIN qitembins locations 
+			ON receiving.CatNo = locations.CatNo
+
+	ORDER BY Bin1
