@@ -18,7 +18,7 @@ SELECT  catalog_number, description, total_cost, total_revenue, total_revenue - 
 
 		(SELECT LEFT(iv.itemnmbr,5) cat_no, SUM(iv.qtyonhnd-iv.atyalloc) qty_available
 			FROM IV00102 iv                    
-            GROUP BY LEFT(iv.itemnmbr,5)
+            		GROUP BY LEFT(iv.itemnmbr,5)
 		) qty
 				ON qty.cat_no = purchasing.cat_num
 
