@@ -1,0 +1,52 @@
+/* 
+Displays list of products and revenue for a given customer for each of 2014, 2015, 2016, and 2017
+
+Only posted invoices are included
+Voided transations are excluded 
+Inventory items, and from SOP line items for non-inventory items
+SOP30200 (Historical Transactions (header)  – one record per posted sales transaction), 
+SOP30300 (Historical Transactions (line detail)  – one record per line item on posted sales transactions  
+IV00101 (Item Master)
+*/
+
+SELECT
+--all_sales.ITEMNMBR AS SKU, --Can sort by each SKU (packing size) also
+all_sales.Item_Description AS [Product],
+LEFT(all_sales.ITEMNMBR, 5) AS [Product_Number],
+
+SUM(CASE WHEN year(all_sales.DOCDATE) = 2014 --AND MONTH(all_sales.DOCDATE) IN (1,2,3,4,5) 
+	       THEN all_sales.SALES ELSE 0 end) AS Sales_in_2014,
+SUM(CASE WHEN year(all_sales.DOCDATE) = 2015 --AND MONTH(all_sales.DOCDATE) IN (1,2,3,4,5) 
+	       THEN all_sales.SALES ELSE 0 end) AS Sales_in_2015,
+SUM(CASE WHEN year(all_sales.DOCDATE) = 2016 --AND MONTH(all_sales.DOCDATE) IN (1,2,3,4,5) 
+	       THEN all_sales.SALES ELSE 0 end) AS Sales_in_2016,
+SUM(CASE WHEN year(all_sales.DOCDATE) = 2017 --AND MONTH(all_sales.DOCDATE) IN (1,2,3,4,5) 
+	       THEN all_sales.SALES ELSE 0 end) AS Sales_in_2017
+ 
+FROM
+    (SELECT
+       SH.DOCDATE, SD.ITEMNMBR, COALESCE(I.ITEMDESC, SD.ITEMDESC) Item_Description, --COALESCE first non-null expression
+       CASE SD.SOPTYPE
+            WHEN 3 THEN SD.XTNDPRCE	  -- adds extended prices for invoices
+          --WHEN 4 THEN SD.XTNDPRCE*-1 -- subtracts extended prices for returns
+            END SALES
+     FROM CHEM.dbo.SOP30200 SH
+        INNER JOIN
+          CHEM.dbo.SOP30300 SD
+            ON SD.SOPNUMBE = SH.SOPNUMBE 
+            AND SD.SOPTYPE = SH.SOPTYPE
+        LEFT OUTER JOIN
+          CHEM.dbo.IV00101 I
+            ON I.ITEMNMBR = SD.ITEMNMBR
+     WHERE SH.VOIDSTTS = 0
+        AND SH.SOPTYPE IN (3,4) -- returns only invoices and returns (does not include credit memos)
+        AND SD.XTNDPRCE <> 0    -- where extended price is not equal to 0 (free samples)
+        AND SD.ITEMNMBR NOT LIKE 'XXXXXXXXXXXXXXX%'
+	      AND CUSTNMBR IN ('YYYYY') ) all_sales -- YYYYY = Customer ID number
+	    --AND CUSTNAME LIKE '%customer%') all_sales -- Searches substring of cust name when no ID #, "customer" = cust name
+
+GROUP BY
+	LEFT(all_sales.ITEMNMBR,5), --Must group by chemical name (and not item number) for XY customer bc of new item numbers
+	all_sales.Item_Description  --WITH ROLLUP
+
+ORDER BY Sales_in_2014 DESC;
