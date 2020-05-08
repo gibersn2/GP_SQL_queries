@@ -56,7 +56,7 @@ SELECT  catalog_number, description, total_cost, total_revenue, total_revenue - 
 		AND YEAR(last_purchase) NOT IN (2015,2016,2017) -- where we have not purchased the item in 2015, 2016, or 2017
 		AND YEAR(last_sale) NOT IN (2016,2017) -- where we have not sold the item in 2016 or 2017
 		AND qty_available <> 0 -- where inventory level does not equal 0
-		AND production_items IS NULL -- where Chem-Impex has not used it in production
-		AND produced_items IS NULL -- where Chem-Impex has not produced the prouduct
+		AND production_items IS NULL -- where company has not used it in production
+		AND produced_items IS NULL -- where company has not produced the prouduct
 
 	ORDER BY YEAR(last_purchase) DESC, difference
